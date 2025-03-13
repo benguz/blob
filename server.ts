@@ -7,14 +7,26 @@ const { z } = require('zod');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+  cors: process.env.NODE_ENV === 'development' 
+    ? {
+        origin: ['http://localhost:8080'],
+        methods: ['GET', 'POST'],
+        credentials: true
+      } 
+    : {}
 });
 
-// Serve static files
+// Serve static files from the dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
+
+// Handle SPA routing - send all non-API/asset requests to index.html
+app.get('*', (req, res, next) => {
+  // Skip API routes and specific file requests
+  if (req.url.startsWith('/socket.io') || req.url.includes('.')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 // Explicitly serve the smiley image
 app.get('/smiley.png', (req, res) => {
@@ -188,7 +200,7 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 

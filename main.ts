@@ -280,8 +280,15 @@ const createPlayerSphere = (player: Player, isLocalPlayer = false): THREE.Mesh =
   return sphere;
 };
 
-// Socket.io setup
-const socket: Socket = io('http://localhost:3001');
+// Socket.io setup - connect to same origin with fallback
+const socket: Socket = (() => {
+  // During development with webpack-dev-server
+  if (process.env.NODE_ENV === 'development') {
+    return io();
+  }
+  // Production
+  return io();
+})();
 
 // Initialize socket events outside of the initGame function
 socket.on('connect', () => {
@@ -434,36 +441,25 @@ document.addEventListener('mousemove', (event) => {
 
 // Update local player movement with physics
 const updateMovement = () => {
+  console.log("Updating movement...");
   if (!localPlayer.mesh) {
     console.warn('Movement update called but local player mesh is not initialized');
     return;
   }
   
-  // Debug every 100 frames
-  if (Math.random() < 0.01) {
-    console.log(`Player position: ${localPlayer.mesh.position.x.toFixed(2)}, ${localPlayer.mesh.position.y.toFixed(2)}, ${localPlayer.mesh.position.z.toFixed(2)}`);
-    console.log(`Velocity: ${localPlayer.velocity.length().toFixed(4)}`);
-    console.log(`Keys: W:${keys.w} A:${keys.a} S:${keys.s} D:${keys.d}`);
-  }
-  
   // Reset acceleration for this frame
   localPlayer.acceleration.set(0, 0, 0);
   
-  // Get forward, right, and up directions based on camera rotation
-  // Include both X and Y rotation for full 3D movement
+  // Calculate movement directions based on both camera X and Y rotation
+  // This is needed for proper 3D movement including vertical component
+  
+  // Forward vector - points where the camera is looking (including up/down)
   const forward = new THREE.Vector3(0, 0, -1);
+  forward.applyEuler(new THREE.Euler(targetRotationX, targetRotationY, 0, 'YXZ'));
+  
+  // Right vector - always stays horizontal regardless of where you're looking
   const right = new THREE.Vector3(1, 0, 0);
-  const up = new THREE.Vector3(0, 1, 0);
-  
-  // Create a rotation that includes both horizontal and vertical components
-  const rotationMatrix = new THREE.Matrix4();
-  const xRotation = new THREE.Matrix4().makeRotationX(targetRotationX);
-  const yRotation = new THREE.Matrix4().makeRotationY(targetRotationY);
-  rotationMatrix.multiplyMatrices(yRotation, xRotation);
-  
-  // Apply the complete rotation to our direction vectors
-  forward.applyMatrix4(rotationMatrix);
-  right.applyMatrix4(yRotation); // Only apply Y rotation to right vector for proper strafing
+  right.applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationY);
   
   // Calculate acceleration based on input and camera orientation
   if (keys.w) {
@@ -525,43 +521,34 @@ const updateMovement = () => {
     localPlayer.velocity.z *= -0.5;
   }
   
-  // Always rotate the player mesh to match camera direction, regardless of view mode
-  // This makes the smiley face always point in the cursor direction
-  const playerDirection = new THREE.Vector3(0, 0, -1);
-  playerDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationY);
+  // Make the player mesh face the camera direction
+  localPlayer.mesh.rotation.y = targetRotationY;
   
-  // Calculate the angle to rotate to
-  const angle = Math.atan2(playerDirection.x, playerDirection.z);
-  localPlayer.mesh.rotation.y = angle;
-  
-  // Update camera position and rotation based on view mode
+  // Update camera position
   if (currentViewMode === VIEW_MODES.FIRST_PERSON) {
-    // First-person: position camera at the center of the sphere
+    // First-person: position camera at player position
     camera.position.copy(localPlayer.mesh.position);
   } else {
-    // Third-person: position camera behind and slightly above the player
+    // Third-person: position camera behind player
     const cameraOffset = new THREE.Vector3(0, THIRD_PERSON_HEIGHT, THIRD_PERSON_DISTANCE);
     cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationY);
-    
     camera.position.copy(localPlayer.mesh.position).add(cameraOffset);
-    
-    // Make the sphere slightly transparent in third-person to see through it
-    if (localPlayer.mesh.children.length > 0) {
-      const faceSphere = localPlayer.mesh.children[0] as THREE.Mesh;
-      const material = localPlayer.mesh.material as THREE.MeshBasicMaterial;
-      
-      if (material) {
-        // Make the base sphere semi-transparent in third-person
-        material.opacity = 0.7;
-      }
-    }
   }
   
-  // Update camera rotation
+  // Set camera rotation
   camera.rotation.x = targetRotationX;
   camera.rotation.y = targetRotationY;
   
-  // Emit movement and rotation to server
+  // Add before sending to server:
+  console.log("Emitting movement:", {
+    id: localPlayer.id,
+    position: {
+      x: localPlayer.mesh.position.x,
+      y: localPlayer.mesh.position.y,
+      z: localPlayer.mesh.position.z
+    }
+  });
+  
   socket.emit('movePlayer', {
     id: localPlayer.id,
     position: {
