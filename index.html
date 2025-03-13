@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love is Blob 2</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #colorControls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: white;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .colorSwatch {
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            margin: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            text-align: center;
+            line-height: 48px;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+        }
+        .colorSwatch:hover {
+            border-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>Love is Blob 2</h3>
+        <p>Allison strikes back</p>
+    </div>
+    <div id="colorControls">
+        <div id="colorSwatches"></div>
+    </div>
+
+    <script>
+        // Store the color presets for reference
+        window.PRESET_COLORS = {
+            1: '#ff6b6b', // Red
+            2: '#4d96ff', // Blue
+            3: '#70cc49', // Green
+            4: '#ffcc29', // Yellow
+            5: '#c882e0', // Purple
+            6: '#ff8e4f', // Orange
+            7: '#4ecdc4', // Teal
+            8: '#ff80bf', // Pink
+            9: '#a2d2ff'  // Light blue
+        };
+        
+        // Create color swatches in the UI
+        document.addEventListener('DOMContentLoaded', function() {
+            const swatchContainer = document.getElementById('colorSwatches');
+            
+            for (let i = 1; i <= 9; i++) {
+                const swatch = document.createElement('div');
+                swatch.className = 'colorSwatch';
+                swatch.style.backgroundColor = window.PRESET_COLORS[i];
+                swatch.textContent = i;
+                swatch.dataset.colorKey = i;
+                
+                // Add click handler as an alternative to key press
+                swatch.addEventListener('click', function() {
+                    const event = new KeyboardEvent('keydown', { key: i.toString() });
+                    document.dispatchEvent(event);
+                });
+                
+                swatchContainer.appendChild(swatch);
+            }
+        });
+            </script>
+</body>
+</html> 

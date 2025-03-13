@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext"
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+} 
