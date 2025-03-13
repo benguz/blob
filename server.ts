@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 const { z } = require('zod');
 
 const app = express();
@@ -16,8 +17,30 @@ const io = new Server(server, {
     : {}
 });
 
-// Serve static files from the dist directory
-app.use(express.static(path.join(__dirname, 'dist')));
+// Set NODE_ENV if not set
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+console.log(`Server running in ${process.env.NODE_ENV} mode`);
+
+// Determine if we're running from the dist directory
+const isRunningFromDist = __dirname.endsWith('dist') || __dirname.includes('/dist/');
+console.log(`Running from: ${__dirname}`);
+console.log(`Running from dist: ${isRunningFromDist}`);
+
+// Determine the correct static files path
+const distPath = isRunningFromDist
+  ? __dirname // Already in dist directory
+  : path.join(__dirname, 'dist');
+
+console.log(`Serving static files from: ${distPath}`);
+
+// Serve static files from the correct dist directory
+app.use(express.static(distPath));
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // Handle SPA routing - send all non-API/asset requests to index.html
 app.get('*', (req, res, next) => {
@@ -25,12 +48,25 @@ app.get('*', (req, res, next) => {
   if (req.url.startsWith('/socket.io') || req.url.includes('.')) {
     return next();
   }
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  
+  const indexHtmlPath = path.join(distPath, 'index.html');
+  console.log(`Trying to serve: ${indexHtmlPath}`);
+  
+  // Check if file exists before trying to send it
+  if (fs.existsSync(indexHtmlPath)) {
+    res.sendFile(indexHtmlPath);
+  } else {
+    console.error(`File not found: ${indexHtmlPath}`);
+    res.status(404).send('File not found');
+  }
 });
 
-// Explicitly serve the smiley image
+// Explicitly serve the smiley image from the correct location
 app.get('/smiley.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'smiley.png'));
+  const smileyPath = process.env.NODE_ENV === 'production'
+    ? path.join(__dirname, 'smiley.png')  // In dist folder after CopyWebpackPlugin
+    : path.join(__dirname, 'smiley.png'); // Root folder during development
+  res.sendFile(smileyPath);
 });
 
 // Type definitions
